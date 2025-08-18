@@ -1,0 +1,6 @@
+github.com/gooolib/errors v0.0.0-20250314205124-0769f4da9980 h1:a3xmBXwQwrWNtNjRPjScTx0n1bbRIuPguq2Ji/wSJEE=
+github.com/gooolib/errors v0.0.0-20250314205124-0769f4da9980/go.mod h1:KgSNO9qMkI+sK5ebzTFDwLB7S1rc/AkVyjlvR4mnHrE=
+github.com/gooolib/testing v0.0.0-20250314201531-08ff6e6b2f90 h1:of8hfCY7cwDtlzpUN8NzO+tN3GL6D8BibzkZOBNOI3w=
+github.com/gooolib/testing v0.0.0-20250314201531-08ff6e6b2f90/go.mod h1:jPlQfVHD4u0YRBx4DCufwvriNX8ykr+i4zqPMadgkAs=
+github.com/lib/pq v1.10.9 h1:YXG7RB+JIjhP29X+OtkiDnYaXQwpS4JEWq7dtCCRUEw=
+github.com/lib/pq v1.10.9/go.mod h1:AlVN5x4E4T544tWzH6hKfbfQvm3HdbOxrmggDNAPY9o=
