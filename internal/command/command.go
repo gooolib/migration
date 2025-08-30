@@ -18,7 +18,7 @@ type CommandExecutor interface {
 	ParseArgs() error
 }
 
-const USAGE = "Usage: migrate <command> args...\nAvailable commands: up, down, reset, generate"
+const USAGE = "Usage: migrate <command> args...\nAvailable commands:\nup, down(rollback), rollback, reset, generate, status"
 
 var availableCommands = map[string]func(*migrate.Migration, *flag.FlagSet) CommandExecutor{
 	"up": func(m *migrate.Migration, args *flag.FlagSet) CommandExecutor {
@@ -32,6 +32,9 @@ var availableCommands = map[string]func(*migrate.Migration, *flag.FlagSet) Comma
 	},
 	"generate": func(m *migrate.Migration, args *flag.FlagSet) CommandExecutor {
 		return &GenerateCommand{migration: m, args: args}
+	},
+	"status": func(m *migrate.Migration, args *flag.FlagSet) CommandExecutor {
+		return &StatusCommand{migration: m, args: args}
 	},
 }
 
@@ -66,5 +69,13 @@ func NewCommand(m *migrate.Migration) (*Command, error) {
 }
 
 func (c *Command) Exec() error {
+	version := c.migration.GetCurrentVersion()
+	if version == "" {
+		version = "initial"
+	}
+	fmt.Println("")
+	fmt.Println("Command:", c.Type)
+	fmt.Println("Current version:", version)
+
 	return c.Executor.Exec()
 }

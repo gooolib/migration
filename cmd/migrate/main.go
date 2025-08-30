@@ -1,7 +1,6 @@
 package main
 
 import (
-	"fmt"
 	"log"
 
 	"github.com/gooolib/errors"
@@ -45,12 +44,6 @@ func main() {
 	if err := m.Load(cfg.Command.MigrationDir); err != nil {
 		log.Fatalf("Failed to load migrations: %v", err)
 	}
-
-	version := m.GetCurrentVersion()
-	if version == "" {
-		version = "initial"
-	}
-	fmt.Println("Current version:", version)
 
 	cmd, err := command.NewCommand(m)
 	if err != nil {

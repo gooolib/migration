@@ -173,6 +173,30 @@ func (r *repository) ResetMigrations() error {
 	return r.CreateMigrationTable()
 }
 
+func (r *repository) ListAppliedMigrations() ([]SchemaMigration, error) {
+	query := "SELECT version, applied_at FROM schema_migrations ORDER BY version"
+	rows, err := r.db.Query(query)
+	if err != nil {
+		return nil, errors.Wrap(err)
+	}
+	defer rows.Close()
+
+	var migrations []SchemaMigration
+	for rows.Next() {
+		var m SchemaMigration
+		if err := rows.Scan(&m.Version, &m.AppliedAt); err != nil {
+			return nil, errors.Wrap(err)
+		}
+		migrations = append(migrations, m)
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, errors.Wrap(err)
+	}
+
+	return migrations, nil
+}
+
 func (r *repository) execQuery(tx *sql.Tx, query string, args ...any) error {
 	if tx == nil {
 		if _, err := r.db.Exec(query, args...); err != nil {

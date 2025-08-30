@@ -24,6 +24,14 @@ func (m *Migration) Config() *config.Config {
 	return m.config
 }
 
+func (m *Migration) Versions() []string {
+	versions := make([]string, 0, len(m.UpFiles))
+	for _, file := range m.UpFiles {
+		versions = append(versions, file.Version())
+	}
+	return versions
+}
+
 func (m *Migration) Up() error {
 	tx, err := m.repo.DB().Begin()
 	if err != nil {
@@ -251,6 +259,40 @@ func NewMigration(config *config.Config) (*Migration, error) {
 	}
 
 	return migration, nil
+}
+
+func (m *Migration) Status() ([]SchemaMigrationStatus, error) {
+	applied, err := m.repo.ListAppliedMigrations()
+	if err != nil {
+		return nil, fmt.Errorf("failed to list applied migrations: %w", err)
+	}
+
+	statuses := make([]SchemaMigrationStatus, len(m.Versions()))
+	for i, version := range m.Versions() {
+		var found *SchemaMigration
+		for _, v := range applied {
+			if v.Version == version {
+				found = &v
+				break
+			}
+		}
+
+		if found != nil {
+			statuses[i] = SchemaMigrationStatus{
+				Version:   version,
+				AppliedAt: &found.AppliedAt,
+				Status:    "up",
+			}
+		} else {
+			statuses[i] = SchemaMigrationStatus{
+				Version:   version,
+				AppliedAt: nil,
+				Status:    "pending",
+			}
+		}
+	}
+
+	return statuses, nil
 }
 
 func (m *Migration) Close() error {
