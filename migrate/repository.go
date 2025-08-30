@@ -59,7 +59,7 @@ func (r *repository) GetCurrentVersion() (string, error) {
 		if err == sql.ErrNoRows {
 			return "", nil
 		}
-		return "", errors.Errorf("error getting current version: %w", err)
+		return "", errors.Errorf("error getting current version: %s", err)
 	}
 	return version, nil
 }
