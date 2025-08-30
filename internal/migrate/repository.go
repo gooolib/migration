@@ -72,7 +72,27 @@ func (r *repository) RecordMigration(tx *sql.Tx, version string) error {
 	return nil
 }
 
+func (r *repository) ExistMigrationRecord(tx *sql.Tx, version string) (bool, error) {
+	query := "SELECT version FROM schema_migrations WHERE version = $1 LIMIT 1"
+	result := ""
+	if err := tx.QueryRow(query, version).Scan(&result); err != nil {
+		if err == sql.ErrNoRows {
+			return false, nil
+		}
+		return false, errors.Wrap(err)
+	}
+
+	return true, nil
+}
+
 func (r *repository) RemoveMigrationRecord(tx *sql.Tx, version string) error {
+	exist, err := r.ExistMigrationRecord(tx, version)
+	if err != nil {
+		return errors.Wrap(err)
+	}
+	if !exist {
+		return nil
+	}
 	query := "DELETE FROM schema_migrations WHERE version = $1"
 	if err := r.execQuery(tx, query, version); err != nil {
 		return errors.Wrap(err)

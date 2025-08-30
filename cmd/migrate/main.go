@@ -31,6 +31,7 @@ func main() {
 			Port:     5432,
 			Username: "postgres",
 			Password: "postgres",
+			Database: "gooolib_migration_development",
 			SSLMode:  "disable",
 		},
 		Command: config.NewCmdConfig(""),

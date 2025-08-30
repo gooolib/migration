@@ -72,6 +72,32 @@ func (m *Migration) Down() error {
 		}
 	}()
 
+	file := m.DownFiles[len(m.DownFiles)-1]
+	if err := m.executeFile(tx, file); err != nil {
+		return err
+	}
+	if err := m.repo.RemoveMigrationRecord(tx, file.Version()); err != nil {
+		return fmt.Errorf("failed to remove migration record: %w", err)
+	}
+
+	if err := tx.Commit(); err != nil {
+		return fmt.Errorf("failed to commit transaction: %w", err)
+	}
+
+	return nil
+}
+
+func (m *Migration) DownAll() error {
+	tx, err := m.repo.DB().Begin()
+	if err != nil {
+		return fmt.Errorf("failed to begin transaction: %w", err)
+	}
+	defer func() {
+		if err != nil {
+			tx.Rollback()
+		}
+	}()
+
 	currentVersion, err := m.repo.GetCurrentVersion()
 	if err != nil {
 		return fmt.Errorf("failed to get current version: %w", err)
@@ -101,7 +127,7 @@ func (m *Migration) Down() error {
 }
 
 func (m *Migration) SoftReset() error {
-	if err := m.Down(); err != nil {
+	if err := m.DownAll(); err != nil {
 		return fmt.Errorf("failed to reset migrations: %w", err)
 	}
 
