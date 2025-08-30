@@ -4,9 +4,9 @@ import (
 	"log"
 
 	"github.com/gooolib/errors"
-	"github.com/gooolib/migration/internal/command"
-	"github.com/gooolib/migration/internal/config"
-	"github.com/gooolib/migration/internal/migrate"
+	"github.com/gooolib/migration/command"
+	"github.com/gooolib/migration/config"
+	"github.com/gooolib/migration/migrate"
 )
 
 func main() {
