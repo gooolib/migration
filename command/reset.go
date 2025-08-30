@@ -3,7 +3,7 @@ package command
 import (
 	"flag"
 
-	"github.com/gooolib/migration/internal/migrate"
+	"github.com/gooolib/migration/migrate"
 )
 
 type ResetCommand struct {

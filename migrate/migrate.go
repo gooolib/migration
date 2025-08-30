@@ -9,7 +9,7 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/gooolib/migration/internal/config"
+	"github.com/gooolib/migration/config"
 )
 
 type Migration struct {

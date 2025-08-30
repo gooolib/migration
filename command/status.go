@@ -6,7 +6,7 @@ import (
 	"os"
 	"text/tabwriter"
 
-	"github.com/gooolib/migration/internal/migrate"
+	"github.com/gooolib/migration/migrate"
 )
 
 type StatusCommand struct {

@@ -4,7 +4,7 @@ import (
 	"flag"
 	"fmt"
 
-	"github.com/gooolib/migration/internal/migrate"
+	"github.com/gooolib/migration/migrate"
 )
 
 type DownCommand struct {

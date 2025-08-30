@@ -8,7 +8,7 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/gooolib/migration/internal/migrate"
+	"github.com/gooolib/migration/migrate"
 )
 
 type GenerateCommand struct {
