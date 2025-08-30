@@ -1,10 +1,12 @@
 package main
 
-	"flag"
+import (
 	"fmt"
 	"log"
 
 	"github.com/gooolib/errors"
+	"github.com/gooolib/migration/internal/command"
+	"github.com/gooolib/migration/internal/config"
 	"github.com/gooolib/migration/internal/migrate"
 )
 
@@ -22,12 +24,24 @@ func main() {
 		}
 	}()
 
-	m, err := migrate.NewMigration("postgres://postgres:postgres@127.0.0.1:5432/asset_trader_development?sslmode=disable")
+	cfg := &config.Config{
+		Database: config.DBConfig{
+			Dialect:  "postgres",
+			Host:     "127.0.0.1",
+			Port:     5432,
+			Username: "postgres",
+			Password: "postgres",
+			SSLMode:  "disable",
+		},
+		Command: config.NewCmdConfig(""),
+	}
+
+	m, err := migrate.NewMigration(cfg)
 	if err != nil {
 		log.Fatalf("Failed to create migration: %v", err)
 	}
 
-	if err := m.Load("./db/migrations"); err != nil {
+	if err := m.Load(cfg.Command.MigrationDir); err != nil {
 		log.Fatalf("Failed to load migrations: %v", err)
 	}
 
@@ -37,45 +51,12 @@ func main() {
 	}
 	fmt.Println("Current version:", version)
 
-	flag.Parse()
-	args := flag.Args()
-	if len(args) < 1 {
-		log.Fatalf("Usage: migrate <command> args...\nAvailable commands: up, down, reset")
-		return
+	cmd, err := command.NewCommand(m)
+	if err != nil {
+		log.Fatalf("Failed to parse command: %v", err)
 	}
 
-	cmd := args[0]
-	if cmd == "up" {
-		if err := m.Up(); err != nil {
-			log.Fatalf("Failed to apply migrations: %v", err)
-		}
-		fmt.Println("Migrations applied successfully.")
-		return
-	}
-
-	if cmd == "down" {
-		if err := m.Down(); err != nil {
-			log.Fatalf("Failed to revert migrations: %v", err)
-		}
-		fmt.Println("Migrations reverted successfully.")
-		return
-	}
-
-	if cmd == "reset" {
-		if err := m.HardReset(); err != nil {
-			log.Fatalf("Failed to reset migrations: %v", err)
-		}
-		fmt.Println("Migrations reset successfully.")
-		return
-	}
-
-	if cmd == "generate" {
-		if len(args) < 2 {
-			log.Fatalf("Usage: migrate generate <migration_name>")
-			return
-		}
-		migrationName := args[1]
-		m.Generate("./db/migrations", migrationName)
+	if err := cmd.Exec(); err != nil {
+		log.Fatalf("Command execution failed: %v", err)
 	}
 }
-

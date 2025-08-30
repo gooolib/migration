@@ -5,11 +5,11 @@ import (
 	"fmt"
 	"io/ioutil"
 	"log"
-	"os"
 	"path/filepath"
 	"sort"
 	"strings"
-	"time"
+
+	"github.com/gooolib/migration/internal/config"
 )
 
 type Migration struct {
@@ -17,6 +17,11 @@ type Migration struct {
 	UpFiles        []MigrationFile
 	DownFiles      []MigrationFile
 	repo           *repository
+	config         *config.Config
+}
+
+func (m *Migration) Config() *config.Config {
+	return m.config
 }
 
 func (m *Migration) Up() error {
@@ -167,37 +172,6 @@ func (m *Migration) Load(path string) error {
 	return nil
 }
 
-func (m *Migration) Generate(path string, name string) error {
-	timestamp := time.Now().Format("20060102150405")
-	upfileName := fmt.Sprintf("%s_%s.up.sql", timestamp, name)
-	downfileName := fmt.Sprintf("%s_%s.down.sql", timestamp, name)
-
-	files := []string{upfileName, downfileName}
-	filePaths := make([]string, len(files))
-	for i, fileName := range files {
-		filePath := filepath.Join(path, fileName)
-		filePaths[i] = filePath
-
-		file, err := os.Create(filePath)
-		if err != nil {
-			return fmt.Errorf("failed to create migration file: %w", err)
-		}
-		defer file.Close()
-		template := fmt.Sprintf("-- Migration\n-- Created at: %s\n\n-- Write your SQL here\n", time.Now().Format("2006-01-02 15:04:05"))
-		if _, err := file.WriteString(template); err != nil {
-			return fmt.Errorf("failed to write migration template: %w", err)
-		}
-	}
-
-	if len(filePaths) > 0 {
-		log.Printf("Migration files generated successfully:")
-		for _, filePath := range filePaths {
-			log.Printf("file: %s", filePath)
-		}
-	}
-	return nil
-}
-
 func (m *Migration) RunSingleUp(file MigrationFile) error {
 	if err := m.executeFile(nil, file); err != nil {
 		return err
@@ -235,14 +209,15 @@ func (m *Migration) CreateMigrationTable() error {
 	return m.repo.CreateMigrationTable()
 }
 
-func NewMigration(dbURL string) (*Migration, error) {
-	repo, err := newRepository(dbURL)
+func NewMigration(config *config.Config) (*Migration, error) {
+	repo, err := newRepository(config.Database.DSN())
 	if err != nil {
 		return nil, fmt.Errorf("failed to create repository: %w", err)
 	}
 
 	migration := &Migration{
-		repo: repo,
+		repo:   repo,
+		config: config,
 	}
 
 	if err := migration.CreateMigrationTable(); err != nil {
@@ -259,6 +234,26 @@ func (m *Migration) Close() error {
 	return nil
 }
 
+func (m *Migration) FindFileByVersion(version string, migrationType string) *MigrationFile {
+	if migrationType == "up" {
+		return findInFiles(m.UpFiles, version)
+	}
+
+	if migrationType == "down" {
+		return findInFiles(m.DownFiles, version)
+	}
+	return nil
+}
+
 func (m *Migration) IsMigrationApplied(version string) (bool, error) {
 	return m.repo.IsMigrationApplied(version)
+}
+
+func findInFiles(files []MigrationFile, version string) *MigrationFile {
+	for _, file := range files {
+		if file.Version() == version {
+			return &file
+		}
+	}
+	return nil
 }
