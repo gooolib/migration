@@ -12,11 +12,40 @@ import (
 	"github.com/gooolib/migration/config"
 )
 
+type statusGetter interface {
+	GetCurrentVersion() (string, error)
+}
+
+type schemaMigrationReader interface {
+	ListAppliedMigrations() ([]SchemaMigration, error)
+	IsMigrationApplied(version string) (bool, error)
+}
+
+type schemaMigrationInitialzier interface {
+	CreateMigrationTable() error
+}
+
+type schemaMigrationUpdater interface {
+	RecordMigration(tx *sql.Tx, version string) error
+	RemoveMigrationRecord(tx *sql.Tx, version string) error
+	ResetMigrations() error
+}
+
+// FIXME: interface has too many methods, consider splitting it
+type repositoryInterface interface {
+	DB() *sql.DB
+	Close() error
+}
+
 type Migration struct {
 	CurrentVersion string
 	UpFiles        []MigrationFile
 	DownFiles      []MigrationFile
-	repo           *repository
+	repo           repositoryInterface
+	statusGetter   statusGetter
+	schemaReader   schemaMigrationReader
+	schemaUpdater  schemaMigrationUpdater
+	schemaInit     schemaMigrationInitialzier
 	config         *config.Config
 }
 
@@ -43,7 +72,7 @@ func (m *Migration) Up() error {
 		}
 	}()
 
-	currentVersion, err := m.repo.GetCurrentVersion()
+	currentVersion, err := m.statusGetter.GetCurrentVersion()
 	if err != nil {
 		return fmt.Errorf("failed to get current version: %w", err)
 	}
@@ -57,7 +86,7 @@ func (m *Migration) Up() error {
 			return err
 		}
 
-		if err := m.repo.RecordMigration(tx, file.Version()); err != nil {
+		if err := m.schemaUpdater.RecordMigration(tx, file.Version()); err != nil {
 			return fmt.Errorf("failed to record migration: %w", err)
 		}
 	}
@@ -84,7 +113,7 @@ func (m *Migration) Down() error {
 	if err := m.executeFile(tx, file); err != nil {
 		return err
 	}
-	if err := m.repo.RemoveMigrationRecord(tx, file.Version()); err != nil {
+	if err := m.schemaUpdater.RemoveMigrationRecord(tx, file.Version()); err != nil {
 		return fmt.Errorf("failed to remove migration record: %w", err)
 	}
 
@@ -106,7 +135,7 @@ func (m *Migration) DownAll() error {
 		}
 	}()
 
-	currentVersion, err := m.repo.GetCurrentVersion()
+	currentVersion, err := m.statusGetter.GetCurrentVersion()
 	if err != nil {
 		return fmt.Errorf("failed to get current version: %w", err)
 	}
@@ -122,7 +151,7 @@ func (m *Migration) DownAll() error {
 			return err
 		}
 
-		if err := m.repo.RemoveMigrationRecord(tx, file.Version()); err != nil {
+		if err := m.schemaUpdater.RemoveMigrationRecord(tx, file.Version()); err != nil {
 			return fmt.Errorf("failed to remove migration record: %w", err)
 		}
 	}
@@ -147,7 +176,7 @@ func (m *Migration) SoftReset() error {
 }
 
 func (m *Migration) HardReset() error {
-	return m.repo.ResetMigrations()
+	return m.schemaUpdater.ResetMigrations()
 }
 
 func (m *Migration) executeFile(tx *sql.Tx, file MigrationFile) error {
@@ -196,7 +225,7 @@ func (m *Migration) Load(path string) error {
 		}
 	}
 
-	version, err := m.repo.GetCurrentVersion()
+	version, err := m.statusGetter.GetCurrentVersion()
 	if err != nil {
 		return fmt.Errorf("failed to get current version: %w", err)
 	}
@@ -211,7 +240,7 @@ func (m *Migration) RunSingleUp(file MigrationFile) error {
 		return err
 	}
 
-	if err := m.repo.RecordMigration(nil, file.Version()); err != nil {
+	if err := m.schemaUpdater.RecordMigration(nil, file.Version()); err != nil {
 		return fmt.Errorf("failed to record migration: %w", err)
 	}
 
@@ -223,7 +252,7 @@ func (m *Migration) RunSingleDown(file MigrationFile) error {
 		return err
 	}
 
-	if err := m.repo.RemoveMigrationRecord(nil, file.Version()); err != nil {
+	if err := m.schemaUpdater.RemoveMigrationRecord(nil, file.Version()); err != nil {
 		return fmt.Errorf("failed to remove migration record: %w", err)
 	}
 
@@ -231,7 +260,7 @@ func (m *Migration) RunSingleDown(file MigrationFile) error {
 }
 
 func (m *Migration) GetCurrentVersion() string {
-	version, err := m.repo.GetCurrentVersion()
+	version, err := m.statusGetter.GetCurrentVersion()
 	if err != nil {
 		log.Printf("Error getting current version: %v", err)
 		return ""
@@ -240,7 +269,7 @@ func (m *Migration) GetCurrentVersion() string {
 }
 
 func (m *Migration) CreateMigrationTable() error {
-	return m.repo.CreateMigrationTable()
+	return m.schemaInit.CreateMigrationTable()
 }
 
 func NewMigration(config *config.Config) (*Migration, error) {
@@ -250,8 +279,12 @@ func NewMigration(config *config.Config) (*Migration, error) {
 	}
 
 	migration := &Migration{
-		repo:   repo,
-		config: config,
+		repo:          repo,
+		statusGetter:  repo,
+		schemaReader:  repo,
+		schemaUpdater: repo,
+		schemaInit:    repo,
+		config:        config,
 	}
 
 	if err := migration.CreateMigrationTable(); err != nil {
@@ -262,7 +295,7 @@ func NewMigration(config *config.Config) (*Migration, error) {
 }
 
 func (m *Migration) Status() ([]SchemaMigrationStatus, error) {
-	applied, err := m.repo.ListAppliedMigrations()
+	applied, err := m.schemaReader.ListAppliedMigrations()
 	if err != nil {
 		return nil, fmt.Errorf("failed to list applied migrations: %w", err)
 	}
@@ -314,7 +347,7 @@ func (m *Migration) FindFileByVersion(version string, migrationType string) *Mig
 }
 
 func (m *Migration) IsMigrationApplied(version string) (bool, error) {
-	return m.repo.IsMigrationApplied(version)
+	return m.schemaReader.IsMigrationApplied(version)
 }
 
 func findInFiles(files []MigrationFile, version string) *MigrationFile {
